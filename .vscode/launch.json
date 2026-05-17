@@ -1,0 +1,34 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter: Run App (Select Device/Emulator)",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "Flutter: Pixel 9 Pro XL",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "Pixel_9_Pro_XL"
+    },
+    {
+      "name": "Flutter: Pixel 4",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "Pixel_4"
+    },
+    {
+      "name": "Flutter: Pixel Tablet",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "Pixel_Tablet"
+    },
+    {
+      "name": "Flutter: iOS Simulator",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "apple_ios_simulator"
+    }
+  ]
+}
