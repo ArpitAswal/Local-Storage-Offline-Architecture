@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'data/models/user.dart';
+import 'presentation/providers/hive_viewmodel.dart';
 import 'presentation/providers/shared_preferences_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
@@ -10,6 +12,11 @@ void main() async {
 
   // FLOW: Step 2 - Initialize Hive database engine.
   await Hive.initFlutter();
+
+  // Register the User adapter so Hive knows how to encode/decode the custom User object.
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(UserAdapter());
+  }
 
   // FLOW: Step 3 - Start the application.
   runApp(const LocalStorageApp());
@@ -25,6 +32,9 @@ class LocalStorageApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<SharedPreferencesViewModel>(
           create: (context) => SharedPreferencesViewModel()..initialize(),
+        ),
+        ChangeNotifierProvider<HiveViewModel>(
+          create: (context) => HiveViewModel()..initialize(),
         ),
       ],
       child: MaterialApp(

@@ -7,24 +7,28 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:flutter_local_storage/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'dart:io';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  setUp(() async {
+    // FLOW: Step 1 - Mock SharedPreferences initial values.
+    SharedPreferences.setMockInitialValues({});
+
+    // FLOW: Step 2 - Mock Hive with a temporary system directory.
+    final tempDir = Directory.systemTemp.createTempSync();
+    Hive.init(tempDir.path);
+  });
+
+  testWidgets('App loads home screen smoke test', (WidgetTester tester) async {
+    // FLOW: Step 3 - Build our app and trigger a frame.
     await tester.pumpWidget(const LocalStorageApp());
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // FLOW: Step 4 - Verify that our home screen loads successfully.
+    expect(find.text('Local Storage Lab'), findsOneWidget);
+    expect(find.text('Part 1: Key-Value & NoSQL Storage'), findsOneWidget);
   });
 }
