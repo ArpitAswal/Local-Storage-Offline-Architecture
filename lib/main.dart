@@ -5,6 +5,7 @@ import 'data/models/user.dart';
 import 'presentation/providers/hive_viewmodel.dart';
 import 'presentation/providers/shared_preferences_viewmodel.dart';
 import 'presentation/providers/isar_viewmodel.dart';
+import 'presentation/providers/secure_storage_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
 void main() async {
@@ -43,6 +44,11 @@ class LocalStorageApp extends StatelessWidget {
         // (inside IsarDemoView.initState) to avoid blocking app startup.
         ChangeNotifierProvider<IsarViewModel>(
           create: (context) => IsarViewModel(),
+        ),
+        // FLOW: SecureStorageViewModel — also lazily initialized
+        // (inside SecureStorageDemoView.initState via readAll())
+        ChangeNotifierProvider<SecureStorageViewModel>(
+          create: (context) => SecureStorageViewModel(),
         ),
       ],
       child: MaterialApp(
