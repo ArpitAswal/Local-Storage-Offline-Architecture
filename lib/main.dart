@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'data/models/user.dart';
 import 'presentation/providers/hive_viewmodel.dart';
 import 'presentation/providers/shared_preferences_viewmodel.dart';
+import 'presentation/providers/isar_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
 void main() async {
@@ -19,6 +20,8 @@ void main() async {
   }
 
   // FLOW: Step 3 - Start the application.
+  // NOTE: Isar is initialized lazily inside IsarViewModel.initialize()
+  // which is called on first screen load — keeping main() clean and fast.
   runApp(const LocalStorageApp());
 }
 
@@ -35,6 +38,11 @@ class LocalStorageApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<HiveViewModel>(
           create: (context) => HiveViewModel()..initialize(),
+        ),
+        // FLOW: IsarViewModel is registered here but initialized lazily
+        // (inside IsarDemoView.initState) to avoid blocking app startup.
+        ChangeNotifierProvider<IsarViewModel>(
+          create: (context) => IsarViewModel(),
         ),
       ],
       child: MaterialApp(
