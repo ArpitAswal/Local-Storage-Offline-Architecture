@@ -6,6 +6,7 @@ import 'presentation/providers/hive_viewmodel.dart';
 import 'presentation/providers/shared_preferences_viewmodel.dart';
 import 'presentation/providers/isar_viewmodel.dart';
 import 'presentation/providers/secure_storage_viewmodel.dart';
+import 'presentation/providers/sqlite_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
 void main() async {
@@ -49,6 +50,11 @@ class LocalStorageApp extends StatelessWidget {
         // (inside SecureStorageDemoView.initState via readAll())
         ChangeNotifierProvider<SecureStorageViewModel>(
           create: (context) => SecureStorageViewModel(),
+        ),
+        // FLOW: SQLiteViewModel — initialized lazily inside SQLiteDemoView.initState
+        // (openDatabase creates/opens the .db file on first access)
+        ChangeNotifierProvider<SQLiteViewModel>(
+          create: (context) => SQLiteViewModel(),
         ),
       ],
       child: MaterialApp(
