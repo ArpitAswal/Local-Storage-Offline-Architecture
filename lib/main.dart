@@ -7,6 +7,7 @@ import 'presentation/providers/shared_preferences_viewmodel.dart';
 import 'presentation/providers/isar_viewmodel.dart';
 import 'presentation/providers/secure_storage_viewmodel.dart';
 import 'presentation/providers/sqlite_viewmodel.dart';
+import 'presentation/providers/drift_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
 void main() async {
@@ -55,6 +56,12 @@ class LocalStorageApp extends StatelessWidget {
         // (openDatabase creates/opens the .db file on first access)
         ChangeNotifierProvider<SQLiteViewModel>(
           create: (context) => SQLiteViewModel(),
+        ),
+        // FLOW: DriftViewModel — initialized lazily inside DriftDemoView.initState
+        // The Drift database (AppDatabase) is a singleton opened on first access.
+        // Reactive stream (watchAllTasks) auto-updates the UI on any DB change.
+        ChangeNotifierProvider<DriftViewModel>(
+          create: (context) => DriftViewModel(),
         ),
       ],
       child: MaterialApp(

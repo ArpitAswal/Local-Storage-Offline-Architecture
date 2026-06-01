@@ -128,6 +128,7 @@ class SQLiteViewModel extends ChangeNotifier {
     try {
       // FLOW: Uses db.transaction() to ensure the update is atomic.
       // If the app crashes mid-update, the transaction rolls back automatically.
+      _setLoading(true);
       await _service.toggleDoneTransaction(item.id!, item.isDone);
       await _refreshTodos();
       _addLog(
@@ -137,6 +138,8 @@ class SQLiteViewModel extends ChangeNotifier {
     } catch (e) {
       _addLog('ERROR', 'toggleDone failed: $e');
       notifyListeners();
+    } finally{
+      _setLoading(false);
     }
   }
 
