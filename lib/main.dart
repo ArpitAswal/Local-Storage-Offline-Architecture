@@ -8,6 +8,7 @@ import 'presentation/providers/isar_viewmodel.dart';
 import 'presentation/providers/secure_storage_viewmodel.dart';
 import 'presentation/providers/sqlite_viewmodel.dart';
 import 'presentation/providers/drift_viewmodel.dart';
+import 'presentation/providers/offline_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
 void main() async {
@@ -62,6 +63,12 @@ class LocalStorageApp extends StatelessWidget {
         // Reactive stream (watchAllTasks) auto-updates the UI on any DB change.
         ChangeNotifierProvider<DriftViewModel>(
           create: (context) => DriftViewModel(),
+        ),
+        // FLOW: OfflineViewModel — initialized lazily inside OfflineCacheDemoView
+        // via OfflineViewModel.initialize() which opens the Hive box.
+        // ProductRepository is created fresh per ViewModel instance.
+        ChangeNotifierProvider<OfflineViewModel>(
+          create: (context) => OfflineViewModel(),
         ),
       ],
       child: MaterialApp(
