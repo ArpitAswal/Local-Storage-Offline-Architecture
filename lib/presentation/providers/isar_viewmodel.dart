@@ -20,6 +20,8 @@ class IsarViewModel extends ChangeNotifier {
   String _searchQuery = '';
   final List<String> _consoleLogs = [];
   bool _isSearching = false;
+  bool _isRollbackRunning = false;
+  bool _isConcurrencyRunning = false;
 
   // ──────────────────────────────────────────────────────────────────────────
   // Public Read-Only Getters
@@ -31,6 +33,8 @@ class IsarViewModel extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   List<String> get consoleLogs => _consoleLogs;
   bool get isSearching => _isSearching;
+  bool get isRollbackRunning => _isRollbackRunning;
+  bool get isConcurrencyRunning => _isConcurrencyRunning;
   int get totalCount => _contacts.length;
 
   /// Initializes the Isar database and loads the initial data snapshot.
@@ -67,6 +71,9 @@ class IsarViewModel extends ChangeNotifier {
     required String name,
     required String email,
     required String role,
+    String? street,
+    String? city,
+    String? zipCode,
   }) async {
     if (name.trim().isEmpty || email.trim().isEmpty) {
       _addLog('WARNING', 'Create aborted: name and email cannot be empty.');
@@ -75,13 +82,24 @@ class IsarViewModel extends ChangeNotifier {
     }
 
     try {
+      final hasAddress = (street != null && street.trim().isNotEmpty) ||
+          (city != null && city.trim().isNotEmpty) ||
+          (zipCode != null && zipCode.trim().isNotEmpty);
+
       // FLOW: Step 1 - Build the IsarContact model using field-by-field assignment.
       // id = Isar.autoIncrement tells Isar to assign the next integer ID automatically.
       final contact = IsarContact()
         ..name = name.trim()
         ..email = email.trim()
         ..role = role
-        ..createdAt = DateTime.now();
+        ..createdAt = DateTime.now()
+        ..address = hasAddress
+            ? IsarAddress(
+                street: street?.trim(),
+                city: city?.trim(),
+                zipCode: zipCode?.trim(),
+              )
+            : null;
 
       // FLOW: Step 2 - Persist inside a writeTxn() (ACID guaranteed).
       final newId = await _service.putContact(contact);
@@ -108,6 +126,9 @@ class IsarViewModel extends ChangeNotifier {
     required String name,
     required String email,
     required String role,
+    String? street,
+    String? city,
+    String? zipCode,
   }) async {
     try {
       // FLOW: Step 1 - Fetch the existing record first.
@@ -117,12 +138,23 @@ class IsarViewModel extends ChangeNotifier {
         return;
       }
 
+      final hasAddress = (street != null && street.trim().isNotEmpty) ||
+          (city != null && city.trim().isNotEmpty) ||
+          (zipCode != null && zipCode.trim().isNotEmpty);
+
       // FLOW: Step 2 - Mutate the object fields and re-put it.
       // Isar identifies this as an update because the id already exists.
       existing
         ..name = name.trim()
         ..email = email.trim()
-        ..role = role;
+        ..role = role
+        ..address = hasAddress
+            ? IsarAddress(
+                street: street?.trim(),
+                city: city?.trim(),
+                zipCode: zipCode?.trim(),
+              )
+            : null;
 
       await _service.putContact(existing);
 
@@ -272,5 +304,50 @@ class IsarViewModel extends ChangeNotifier {
         "${now.minute.toString().padLeft(2, '0')}:"
         "${now.second.toString().padLeft(2, '0')}";
     _consoleLogs.insert(0, "[$timeStr] $actionType: $message");
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // TRANSACTION ROLLBACK & CONCURRENCY DEMOS
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Runs the transaction rollback educational demo.
+  Future<void> runTransactionRollbackDemo() async {
+    if (_isRollbackRunning) return;
+    _isRollbackRunning = true;
+    _addLog('DEMO', 'Initializing Transaction Rollback Demo...');
+    notifyListeners();
+
+    try {
+      await _service.demoTransactionRollback();
+      _addLog('DEMO (Rollback)', 'Success: Transaction finished without exceptions (should not happen in this demo).');
+    } catch (e) {
+      _addLog('DEMO (Rollback)', 'Exception caught: $e');
+      _addLog('DEMO (Rollback)', 'ACID Rollback confirmed: No changes were committed to the database.');
+    } finally {
+      _isRollbackRunning = false;
+      await _refreshContacts();
+      notifyListeners();
+    }
+  }
+
+  /// Runs the multi-isolate/concurrent read-write demo.
+  Future<void> runConcurrencyDemo() async {
+    if (_isConcurrencyRunning) return;
+    _isConcurrencyRunning = true;
+    _addLog('DEMO', 'Initializing Multi-Isolate Concurrency Demo...');
+    notifyListeners();
+
+    try {
+      final steps = await _service.demoConcurrency();
+      for (final step in steps) {
+        _addLog('DEMO (Concurrency)', step);
+      }
+    } catch (e) {
+      _addLog('ERROR', 'Concurrency demo failed: $e');
+    } finally {
+      _isConcurrencyRunning = false;
+      await _refreshContacts();
+      notifyListeners();
+    }
   }
 }

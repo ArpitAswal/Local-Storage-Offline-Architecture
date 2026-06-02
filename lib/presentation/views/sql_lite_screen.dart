@@ -462,6 +462,84 @@ final db = await openDatabase(
                 'For complex migrations, consider Drift (sqflite wrapper with built-in '
                 'migration helpers and type-safe queries).',
               ),
+              context.dividerSpace(16),
+
+              // ── Section 9: Foreign Keys & PRAGMA ──────────────────────────
+              context.headTitle('9. SQLite Foreign Keys & Cascade Deletes', colorScheme.secondary),
+              const SizedBox(height: 10),
+              context.contentText('Enabling and using relationships in mobile apps', sqlColor),
+              context.contentSectionContainer(
+                '''// ⚠️ SQLite Foreign Key Warning:
+// SQLite parses foreign key constraints, but does NOT enforce them by default!
+// To make relationships work, you MUST execute PRAGMA in the onConfigure callback.
+//
+// 🛠️ Enable foreign key enforcement at openDatabase time:
+final db = await openDatabase(
+  path,
+  version: 2,
+  onConfigure: (db) async {
+    // Enable foreign keys
+    await db.execute('PRAGMA foreign_keys = ON');
+  },
+);
+
+// ── ON DELETE CASCADE ──
+// Deleting parent rows automatically cleans up child rows:
+CREATE TABLE categories (
+  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE todos (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  title       TEXT NOT NULL,
+  category_id INTEGER,
+  // If a category is deleted, all related todos are deleted automatically
+  FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE CASCADE
+);''',
+              ),
+              context.theoryContentText(
+                '💡 Why Cascade Delete is vital on mobile:\n'
+                'Phone storage is limited. If a user deletes a category or profile, '
+                'and you do not have foreign key cascading deletes enabled (or manually delete them), '
+                'all associated todo list items, pictures, and notes remain as orphaned data '
+                'wasting physical device space.',
+              ),
+              context.dividerSpace(16),
+
+              // ── Section 10: Error Handling ──────────────────────────────
+              context.headTitle('10. DatabaseException & Error Handling', colorScheme.secondary),
+              const SizedBox(height: 10),
+              context.contentText('Catching SQLite constraint and locking errors', sqlColor),
+              context.contentSectionContainer(
+                '''// Every query or write in sqflite can throw a DatabaseException.
+// Common failures include UNIQUE constraint failed, FOREIGN KEY constraint failed,
+// and database locking issues.
+//
+// 🛠️ Catching DatabaseException in Dart:
+
+try {
+  await db.insert('todos', {
+    'title': 'Orphaned Task',
+    'category_id': 999, // Category 999 does not exist!
+  });
+} on DatabaseException catch (e) {
+  if (e.isUniqueConstraintError()) {
+    print('Failed: Name already exists in the database.');
+  } else if (e.toString().contains('FOREIGN KEY constraint failed')) {
+    print('Failed: Parent category does not exist.');
+  } else {
+    print('DatabaseException caught: \$e');
+  }
+}''',
+              ),
+              context.theoryContentText(
+                '🔐 Database Locking:\n'
+                'SQLite locks the database file when a write transaction starts. '
+                'If you run concurrent writes or open the same file across multiple isolates '
+                'without using a single database connection instance, SQLite will throw '
+                'a locking DatabaseException. Always use a single singleton service.',
+              ),
               const SizedBox(height: 24),
             ],
           ),

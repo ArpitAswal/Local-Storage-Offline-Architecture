@@ -11,11 +11,13 @@ class SharedPreferencesViewModel extends ChangeNotifier {
   int _counter = 0;
   int _externalCounter = 0;
   bool _isInitialized = false;
+  String? _lastErrorMessage;
 
   // Getters to expose read-only state to the View
   int get counter => _counter;
   int get externalCounter => _externalCounter;
   bool get isInitialized => _isInitialized;
+  String? get lastErrorMessage => _lastErrorMessage;
 
   /// Initializes the service asynchronously and reads initial values.
   Future<void> initialize() async {
@@ -94,8 +96,27 @@ class SharedPreferencesViewModel extends ChangeNotifier {
     _cacheAvgLatencyUs = 0.0;
     _asyncAvgLatencyUs = 0.0;
     _benchmarkExplanation = '';
+    _lastErrorMessage = null;
 
     // FLOW: Step 3 - Rebuild listening Widgets.
+    notifyListeners();
+  }
+
+  /// Removes a specific key from both Async and WithCache preferences.
+  Future<void> deleteKey(String key) async {
+    await _service.removeKey(key);
+    // Re-read counter from cache in case it was deleted
+    if (_service.isInitialized) {
+      _counter = _service.getCounterWithCache();
+    }
+    _lastErrorMessage = null;
+    notifyListeners();
+  }
+
+  /// Simulates reading a key with the wrong type to demonstrate null safety.
+  Future<void> simulateTypeMismatch() async {
+    final result = await _service.simulateTypeMismatch();
+    _lastErrorMessage = result;
     notifyListeners();
   }
 

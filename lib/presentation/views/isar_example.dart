@@ -20,6 +20,9 @@ class _IsarDemoViewState extends State<IsarDemoView> {
   // ── Form Controllers ────────────────────────────────────────────────────────
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _zipController = TextEditingController();
   final _searchController = TextEditingController();
   String _selectedRole = 'User';
   IsarContact? _editingContact; // Non-null = edit mode
@@ -39,6 +42,9 @@ class _IsarDemoViewState extends State<IsarDemoView> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _streetController.dispose();
+    _cityController.dispose();
+    _zipController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -49,6 +55,9 @@ class _IsarDemoViewState extends State<IsarDemoView> {
       _editingContact = null;
       _nameController.clear();
       _emailController.clear();
+      _streetController.clear();
+      _cityController.clear();
+      _zipController.clear();
       _selectedRole = 'User';
     });
   }
@@ -90,6 +99,10 @@ class _IsarDemoViewState extends State<IsarDemoView> {
 
                   // ── Section 4: Contact Form (Create / Update) ──────────────
                   _buildContactFormCard(viewModel, colorScheme),
+                  const SizedBox(height: 16),
+
+                  // ── Section 4.5: Error Handling & Concurrency Demo ─────────
+                  _buildErrorConcurrencyCard(viewModel, colorScheme),
                   const SizedBox(height: 16),
 
                   // ── Section 5: Stored Contacts List ────────────────────────
@@ -522,6 +535,48 @@ class _IsarDemoViewState extends State<IsarDemoView> {
                       if (value != null) setState(() => _selectedRole = value);
                     },
                   ),
+                  const SizedBox(height: 12),
+
+                  // Embedded Address section
+                  const Text(
+                    'Embedded Address (Optional):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _streetController,
+                          decoration: const InputDecoration(
+                            labelText: 'Street',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _cityController,
+                          decoration: const InputDecoration(
+                            labelText: 'City',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _zipController,
+                    decoration: const InputDecoration(
+                      labelText: 'ZIP Code',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
                   const SizedBox(height: 14),
 
                   // Action buttons
@@ -552,12 +607,18 @@ class _IsarDemoViewState extends State<IsarDemoView> {
                                 name: name,
                                 email: email,
                                 role: _selectedRole,
+                                street: _streetController.text.trim(),
+                                city: _cityController.text.trim(),
+                                zipCode: _zipController.text.trim(),
                               );
                             } else {
                               viewModel.createContact(
                                 name: name,
                                 email: email,
                                 role: _selectedRole,
+                                street: _streetController.text.trim(),
+                                city: _cityController.text.trim(),
+                                zipCode: _zipController.text.trim(),
                               );
                             }
                             _cancelEdit();
@@ -750,6 +811,23 @@ class _IsarDemoViewState extends State<IsarDemoView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(contact.email, style: const TextStyle(fontSize: 12)),
+            if (contact.address != null) ...[
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  const Icon(Icons.home_outlined, size: 12, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      '${contact.address!.street ?? ""}, ${contact.address!.city ?? ""} ${contact.address!.zipCode ?? ""}',
+                      style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 2),
             // Auto-incremented integer ID display — key learning point
             Text(
               'id: ${contact.id}  •  ${_formatDate(contact.createdAt)}',
@@ -773,6 +851,9 @@ class _IsarDemoViewState extends State<IsarDemoView> {
                   _nameController.text = contact.name;
                   _emailController.text = contact.email;
                   _selectedRole = contact.role;
+                  _streetController.text = contact.address?.street ?? '';
+                  _cityController.text = contact.address?.city ?? '';
+                  _zipController.text = contact.address?.zipCode ?? '';
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -825,6 +906,93 @@ class _IsarDemoViewState extends State<IsarDemoView> {
       label: const Text(
         'Clear All Records (isar.isarContacts.clear())',
         style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.3),
+      ),
+    );
+  }
+
+  /// Error Handling & Concurrency Demo interactive Card.
+  Widget _buildErrorConcurrencyCard(IsarViewModel viewModel, ColorScheme colorScheme) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Section title
+            Row(
+              children: [
+                Icon(Icons.lock_reset_outlined, color: isarColor, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Error Handling & Concurrency Demo',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Demonstrates transaction rollbacks and non-blocking reads during active writes.',
+              style: TextStyle(fontSize: 11.5, color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.red.shade800,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: viewModel.isRollbackRunning || viewModel.isConcurrencyRunning
+                        ? null
+                        : () => viewModel.runTransactionRollbackDemo(),
+                    icon: viewModel.isRollbackRunning
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.undo, size: 16),
+                    label: const Text(
+                      'Rollback Demo',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.indigo.shade800,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: viewModel.isConcurrencyRunning || viewModel.isRollbackRunning
+                        ? null
+                        : () => viewModel.runConcurrencyDemo(),
+                    icon: viewModel.isConcurrencyRunning
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.shuffle, size: 16),
+                    label: const Text(
+                      'Concurrency Demo',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -161,4 +161,90 @@ class IsarService {
       await _isar.isarContacts.clear();
     });
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 8. Advanced Demos: Error Handling & Concurrency
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Demonstrates Isar's transactional rollback.
+  /// If an error occurs inside a writeTxn, all changes made inside that transaction
+  /// are completely rolled back, leaving the database unmodified.
+  Future<void> demoTransactionRollback() async {
+    final initialCount = await getCount();
+
+    try {
+      await _isar.writeTxn(() async {
+        // Create and insert a contact
+        final contact = IsarContact()
+          ..name = "Rollback Test Contact"
+          ..email = "rollback@test.com"
+          ..role = "User"
+          ..createdAt = DateTime.now();
+        await _isar.isarContacts.put(contact);
+
+        // Count inside the transaction would show it was added (isolated view)
+        // But we deliberately throw an exception to trigger rollback
+        throw Exception("Deliberate error to trigger ACID transaction rollback");
+      });
+    } catch (e) {
+      // The exception is caught here
+      // Verify that the count hasn't changed (rollback succeeded)
+      final postCount = await getCount();
+      if (initialCount == postCount) {
+        rethrow; // Rethrow so the VM/UI can display/log the caught exception & proof of rollback
+      } else {
+        throw Exception("Rollback failed! DB contains uncommitted transaction data.");
+      }
+    }
+  }
+
+  /// Demonstrates multi-isolate / concurrent read-write behavior in Isar.
+  /// Write transactions are serialized (queue-based single writer), but read transactions
+  /// are non-blocking and can run concurrently on separate threads/isolates.
+  Future<List<String>> demoConcurrency() async {
+    final List<String> sequenceLogs = [];
+
+    sequenceLogs.add("Step 1: Starting simulated long write transaction (takes 2 seconds)...");
+
+    // We launch the write transaction asynchronously but don't await it immediately
+    final writeFuture = _isar.writeTxn(() async {
+      final contact = IsarContact()
+        ..name = "Concurrency Temp Contact"
+        ..email = "concurrency@test.com"
+        ..role = "User"
+        ..createdAt = DateTime.now();
+      final id = await _isar.isarContacts.put(contact);
+      // Simulate database locked / write in progress by delaying
+      await Future.delayed(const Duration(seconds: 2));
+      sequenceLogs.add("Step 4 (Write): Write transaction committed for ID $id.");
+    });
+
+    // Give the write transaction a tiny headstart to ensure it acquires the write lock
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    sequenceLogs.add("Step 2: Starting a concurrent READ query while write transaction is active...");
+
+    // Run a read query - it should complete immediately because reads are non-blocking
+    final readStart = DateTime.now();
+    final contacts = await _isar.isarContacts.where().findAll();
+    final readEnd = DateTime.now();
+    final readDurationMs = readEnd.difference(readStart).inMilliseconds;
+
+    sequenceLogs.add("Step 3 (Read): Concurrent READ completed in ${readDurationMs}ms (Read succeeded without waiting for write lock!). Found ${contacts.length} contacts.");
+
+    // Now wait for the write transaction to complete
+    await writeFuture;
+    sequenceLogs.add("Step 5: Clean up - removing concurrency temp contact...");
+
+    // Delete the temporary contact
+    await _isar.writeTxn(() async {
+      final temp = await _isar.isarContacts.filter().nameEqualTo("Concurrency Temp Contact").findFirst();
+      if (temp != null) {
+        await _isar.isarContacts.delete(temp.id);
+      }
+    });
+    sequenceLogs.add("Step 6: Concurrency demonstration complete!");
+
+    return sequenceLogs;
+  }
 }

@@ -6,8 +6,21 @@ import '../providers/shared_preferences_viewmodel.dart';
 /// [SharedPreferencesDemoView] - The interactive lab where users can see
 /// SharedPreferences, SharedPreferencesAsync, and SharedPreferencesWithCache in action.
 /// Built strictly following the MVVM pattern and powered by Provider.
-class SharedPreferencesDemoView extends StatelessWidget {
+class SharedPreferencesDemoView extends StatefulWidget {
   const SharedPreferencesDemoView({super.key});
+
+  @override
+  State<SharedPreferencesDemoView> createState() => _SharedPreferencesDemoViewState();
+}
+
+class _SharedPreferencesDemoViewState extends State<SharedPreferencesDemoView> {
+  final _deleteKeyController = TextEditingController();
+
+  @override
+  void dispose() {
+    _deleteKeyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +90,14 @@ class SharedPreferencesDemoView extends StatelessWidget {
 
                   // ── Sandbox Card 3: Speed Benchmark & Guidelines Comparison ──
                   _buildBenchmarkCard(context, viewModel, colorScheme),
+                  const SizedBox(height: 20),
+
+                  // ── Sandbox Card 4: Delete Key Demo ────────────────────────
+                  _buildDeleteKeyCard(context, viewModel, colorScheme),
+                  const SizedBox(height: 20),
+
+                  // ── Sandbox Card 5: Error Handling Demo ───────────────────
+                  _buildErrorHandlingCard(context, viewModel, colorScheme),
                   const SizedBox(height: 28),
 
                   // ── Reset Button Action ────────────────────────────────────
@@ -116,6 +137,207 @@ class SharedPreferencesDemoView extends StatelessWidget {
   // ===========================================================================
   // PRIVATE COMPONENT BUILDERS
   // ===========================================================================
+
+  Widget _buildDeleteKeyCard(
+    BuildContext context,
+    SharedPreferencesViewModel viewModel,
+    ColorScheme colorScheme,
+  ) {
+    final controller = TextEditingController();
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.red.shade200.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.delete_sweep_outlined, color: Colors.red.shade700, size: 22),
+                const SizedBox(width: 8),
+                const Text(
+                  'Delete / Remove a Key',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Demonstrates remove() and clear() APIs. Type an existing key name and remove it '
+              'from SharedPreferencesWithCache. Or clear ALL keys at once.',
+              style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Key to delete (e.g. counter)',
+                hintText: 'Enter key name',
+                border: OutlineInputBorder(),
+                isDense: true,
+                prefixIcon: Icon(Icons.key_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.red.shade600,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () {
+                      final key = controller.text.trim();
+                      if (key.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('⚠️ Please enter a key name to delete.')),
+                        );
+                        return;
+                      }
+                      viewModel.deleteKey(key);
+                      controller.clear();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('🗑️ remove(\'$key\') executed — key deleted from cache+disk.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('remove(key)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Info box explaining the code running
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade100),
+              ),
+              child: Text(
+                '📌 Code running:\n'
+                'await prefsWithCache.remove(key); // removes from memory cache + disk\n'
+                'await asyncPrefs.remove(key);      // removes directly from disk',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.red.shade900, height: 1.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorHandlingCard(
+    BuildContext context,
+    SharedPreferencesViewModel viewModel,
+    ColorScheme colorScheme,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.amber.shade300.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.amber.shade800, size: 22),
+                const SizedBox(width: 8),
+                const Text(
+                  'Error Handling Demo',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Simulates common beginner mistakes: reading a key with the wrong type, '
+              'and reading a non-existent key without a default value.',
+              style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            // Error state display
+            if (viewModel.lastErrorMessage != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.amber.shade800, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        viewModel.lastErrorMessage!,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontFamily: 'monospace',
+                          color: Colors.amber.shade900,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.amber.shade700,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => viewModel.simulateTypeMismatch(),
+                    icon: const Icon(Icons.bug_report_outlined, size: 18),
+                    label: const Text('Simulate Type Mismatch', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: const Text(
+                '// Code that runs:\n'
+                'await prefs.setInt(\'counter\', 42);\n'
+                'final String? result = prefs.getString(\'counter\');\n'
+                '// result = null (type mismatch — no crash!)',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildSandboxHeader(ColorScheme colorScheme) {
     return Container(

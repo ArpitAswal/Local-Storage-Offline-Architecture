@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../data/services/secure_storage_service.dart';
 
 /// [SecureStorageViewModel] - MVVM state holder for the Secure Storage screens.
@@ -36,6 +37,7 @@ class SecureStorageViewModel extends ChangeNotifier {
   final List<String> _consoleLogs = [];
 
   bool _isLoading = false;
+  bool _isDemoRunning = false;
 
   // ──────────────────────────────────────────────────────────────────────────
   // Public Getters
@@ -48,6 +50,7 @@ class SecureStorageViewModel extends ChangeNotifier {
   String? get lastContainsKey => _lastContainsKey;
   List<String> get consoleLogs => _consoleLogs;
   bool get isLoading => _isLoading;
+  bool get isDemoRunning => _isDemoRunning;
   int get totalKeys => _vaultEntries.length;
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -281,5 +284,55 @@ class SecureStorageViewModel extends ChangeNotifier {
         '${now.minute.toString().padLeft(2, '0')}:'
         '${now.second.toString().padLeft(2, '0')}';
     _consoleLogs.insert(0, '[$t] $type: $message');
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // KEYSTORE DEC_FAILURE SIMULATION
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Simulates a KeyStore / Keychain decryption failure (PlatformException) and auto-recovery.
+  Future<void> simulateDecryptionFailureDemo() async {
+    if (_isDemoRunning) return;
+    _isDemoRunning = true;
+    _isLoading = true;
+    _addLog('DEMO', 'Simulating KeyStore decryption failure...');
+    notifyListeners();
+
+    try {
+      // Step 1: Pre-populate dummy tokens
+      await _service.write(key: 'auth_token', value: 'secret_token_123_abc');
+      await _refreshVault();
+      _addLog('DEMO', 'Vault pre-populated with "auth_token".');
+      await Future.delayed(const Duration(milliseconds: 600));
+
+      // Step 2: Simulate reading and failing due to lockscreen configuration change
+      _addLog('DEMO', 'Reading "auth_token" with hardware KeyStore decryption...');
+      await Future.delayed(const Duration(milliseconds: 600));
+
+      // We deliberately throw the exception to simulate hardware decryption fail
+      throw PlatformException(
+        code: 'KeystoreException',
+        message: 'Failed to decrypt: KeyPermanentlyInvalidatedException: Key permanently invalidated because secure lock screen signature has changed.',
+      );
+    } on PlatformException catch (e) {
+      _addLog('ERROR', '${e.code}: ${e.message}');
+      await Future.delayed(const Duration(milliseconds: 600));
+      _addLog('SYSTEM', 'Recovery protocol triggered: calling storage.deleteAll()...');
+      
+      // Execute the recovery: wipe all keys so subsequent reads do not crash
+      await _service.deleteAll();
+      await _refreshVault();
+      
+      // Clear temporary states
+      _lastReadValue = null;
+      _lastReadKey = null;
+
+      _addLog('SYSTEM', 'Vault wiped successfully! Device state recovered cleanly.');
+      _addLog('SYSTEM', 'User session terminated. Redirecting to Login/Auth page.');
+    } finally {
+      _isDemoRunning = false;
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

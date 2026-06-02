@@ -92,6 +92,10 @@ class _SecureStorageDemoViewState extends State<SecureStorageDemoView> {
                   _buildReadCard(vm, colorScheme),
                   const SizedBox(height: 14),
 
+                  // 6. PlatformException & Recovery Demo card
+                  _buildErrorRecoveryCard(vm, colorScheme),
+                  const SizedBox(height: 14),
+
                   // 7. DELETE ALL
                   _buildDeleteAllButton(vm, colorScheme),
                   const SizedBox(height: 24),
@@ -747,6 +751,59 @@ class _SecureStorageDemoViewState extends State<SecureStorageDemoView> {
       label: const Text(
         'Delete All Secrets (storage.deleteAll) — Use on Logout',
         style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.3),
+      ),
+    );
+  }
+
+  /// PlatformException Recovery Demo Card
+  Widget _buildErrorRecoveryCard(SecureStorageViewModel vm, ColorScheme colorScheme) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Icon(Icons.gpp_bad_outlined, color: secureColor, size: 22),
+              const SizedBox(width: 8),
+              const Text('PlatformException Recovery Demo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              'Simulates KeyStore decryption failures (invalidated keys, PIN changes) and triggers clean self-healing vault deletion.',
+              style: TextStyle(fontSize: 11.5, color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 14),
+
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.red.shade900,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: vm.isDemoRunning || vm.isLoading
+                  ? null
+                  : () {
+                      _writeKeyController.clear();
+                      _writeValueController.clear();
+                      _readKeyController.clear();
+                      _checkKeyController.clear();
+                      vm.simulateDecryptionFailureDemo();
+                    },
+              icon: vm.isDemoRunning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.warning_amber_outlined, size: 18),
+              label: const Text('Simulate KeyStore Failure & Auto-Recovery', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -28,6 +28,8 @@ class OfflineViewModel extends ChangeNotifier {
   int _networkDelaySeconds = 2;
   final List<String> _eventLog = [];
   StreamSubscription<RepositoryState>? _repoSub;
+  List<Map<dynamic, dynamic>> _pendingOutbox = [];
+  bool _isSyncingOutbox = false;
 
   // ── Public Getters ─────────────────────────────────────────────────────────
   bool get isInitialized => _isInitialized;
@@ -35,25 +37,24 @@ class OfflineViewModel extends ChangeNotifier {
   bool get simulateNetworkError => _simulateNetworkError;
   int get networkDelaySeconds => _networkDelaySeconds;
   List<String> get eventLog => List.unmodifiable(_eventLog);
+  List<Map<dynamic, dynamic>> get pendingOutbox => List.unmodifiable(_pendingOutbox);
+  int get pendingOutboxCount => _pendingOutbox.length;
+  bool get isSyncingOutbox => _isSyncingOutbox;
 
   // ── INITIALIZATION ─────────────────────────────────────────────────────────
   Future<void> initialize() async {
     if (_isInitialized) return;
     await _repo.initialize();
+    _pendingOutbox = _repo.getPendingOutbox();
     _isInitialized = true;
-    _addLog('SYSTEM', 'Repository initialized. Hive box opened.');
+    _addLog('SYSTEM', 'Repository initialized. Hive boxes opened.');
     _addLog('SYSTEM',
         'Cache status: ${_repo.hasCachedData ? "HIT — cached data found" : "MISS — no cache yet"}');
+    _addLog('SYSTEM', 'Outbox status: ${_pendingOutbox.isEmpty ? "Empty" : "${_pendingOutbox.length} pending actions"}');
     notifyListeners();
   }
 
   // ── FETCH PRODUCTS (starts the cache-first stream) ─────────────────────────
-  //
-  // FLOW ANNOTATION:
-  //   1. Cancel any previous stream subscription (avoid double-fetch)
-  //   2. Subscribe to repo.getProducts() — an async* Stream
-  //   3. First event arrives instantly (cache emit)
-  //   4. Second event arrives after network delay (network emit)
   void fetchProducts() {
     _repoSub?.cancel();
     _addLog('─────', '──────────────────────────────────');
@@ -68,6 +69,7 @@ class OfflineViewModel extends ChangeNotifier {
         .listen(
           (state) {
             _state = state;
+            _pendingOutbox = _repo.getPendingOutbox();
 
             if (state.networkStatus == NetworkStatus.loading) {
               if (state.source == DataSource.cache) {
@@ -98,11 +100,59 @@ class OfflineViewModel extends ChangeNotifier {
         );
   }
 
+  // ── FAVORITE & OUTBOX ACTIONS ──────────────────────────────────────────────
+  Future<void> toggleFavorite(int productId) async {
+    _addLog('ACTION', 'toggleFavorite(productId: $productId) called');
+
+    // 1. Trigger write to Hive cache and add to outbox
+    await _repo.toggleFavoriteOffline(productId);
+
+    // 2. Perform Optimistic UI Update directly on local state
+    _pendingOutbox = _repo.getPendingOutbox();
+    final updatedList = _state.products.map((p) {
+      if (p.id == productId) {
+        final newVal = !p.isFavorite;
+        _addLog('CACHE', 'Optimistic cache write: Product $productId isFavorite → $newVal. Action queued to outbox.');
+        return p.copyWith(isFavorite: newVal);
+      }
+      return p;
+    }).toList();
+
+    _state = _state.copyWith(products: updatedList);
+    notifyListeners();
+
+    // 3. Auto-trigger background outbox synchronization
+    await syncPendingOutbox();
+  }
+
+  Future<void> syncPendingOutbox() async {
+    if (_isSyncingOutbox) return;
+    final queue = _repo.getPendingOutbox();
+    if (queue.isEmpty) return;
+
+    _isSyncingOutbox = true;
+    _addLog('SYNC', 'Starting sync of ${queue.length} pending actions in outbox...');
+    notifyListeners();
+
+    try {
+      await _repo.syncOutbox(_simulateNetworkError);
+      _pendingOutbox = _repo.getPendingOutbox();
+      _addLog('SYNC', 'Sync successful. Outbox queue synchronized and cleared.');
+    } catch (e) {
+      _pendingOutbox = _repo.getPendingOutbox();
+      _addLog('ERROR', 'Sync failed: ${e.toString().replaceFirst('Exception: ', '')}. Items remain in Outbox.');
+    } finally {
+      _isSyncingOutbox = false;
+      notifyListeners();
+    }
+  }
+
   // ── CLEAR CACHE ─────────────────────────────────────────────────────────────
   Future<void> clearCache() async {
     await _repo.clearCache();
     _state = const RepositoryState();
-    _addLog('CACHE', 'Hive cache cleared. box.delete(\"products_list\")');
+    _pendingOutbox = [];
+    _addLog('CACHE', 'Hive cache and sync outbox cleared.');
     notifyListeners();
   }
 
@@ -111,7 +161,7 @@ class OfflineViewModel extends ChangeNotifier {
     _simulateNetworkError = !_simulateNetworkError;
     _addLog('CONFIG',
         'simulateNetworkError → $_simulateNetworkError. '
-        'Next fetch will ${_simulateNetworkError ? "FAIL" : "SUCCEED"}');
+        'Next fetch/sync will ${_simulateNetworkError ? "FAIL" : "SUCCEED"}');
     notifyListeners();
   }
 

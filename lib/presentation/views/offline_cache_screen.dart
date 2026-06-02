@@ -326,10 +326,127 @@ class OfflineCacheScreen extends StatelessWidget {
               const SizedBox(height: 10),
 
               _buildProductionTips(context),
+              const SizedBox(height: 20),
+
+              // ── Section 11: Offline Writes (Outbox Pattern) ────────────────
+              context.headTitle('11. Writing to Cache while Offline (Outbox)', colorScheme.secondary),
+              const SizedBox(height: 10),
+
+              context.theoryContentText(
+                'Toggling favorites or writing data offline uses the Outbox Pattern:\n\n'
+                '① Optimistic UI Update: Update the local cache (Hive) instantly so the user sees changes immediately (no loading spinners).\n'
+                '② Outbox Queuing: Save the operation details (action, payload, timestamp) into a persistent pending box (offline_sync_outbox).\n'
+                '③ Synchronization: Trigger a background process to push changes to the server when network is restored. If it fails, items remain queued safely.',
+              ),
+              const SizedBox(height: 10),
+
+              context.contentText('Write queue helper', offlineColor),
+              context.contentSectionContainer(
+                'Future<void> toggleFavoriteOffline(int productId) async {\n'
+                '  // 1. Optimistic write directly into product cache\n'
+                '  final cached = _readCache();\n'
+                '  final idx = cached.indexWhere((p) => p.id == productId);\n'
+                '  cached[idx] = cached[idx].copyWith(isFavorite: !cached[idx].isFavorite);\n'
+                '  await _writeCache(cached);\n\n'
+                '  // 2. Queue write event into pending sync box\n'
+                '  await _outboxBox.put(actionId, {\n'
+                '    \'productId\': productId,\n'
+                '    \'action\': \'toggle_favorite\',\n'
+                '    \'value\': cached[idx].isFavorite,\n'
+                '  });\n'
+                '}',
+              ),
+              const SizedBox(height: 20),
+
+              // ── Section 12: Caching Strategy Comparison ───────────────────
+              context.headTitle('12. Caching Strategy Comparison', colorScheme.secondary),
+              const SizedBox(height: 10),
+
+              _buildStrategyComparisonTable(context),
               const SizedBox(height: 32),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStrategyComparisonTable(BuildContext context) {
+    final rows = [
+      ('Strategy', 'Behavior', 'Ideal Use Case', Colors.deepPurple),
+      ('Cache-First\n(Speed)', 'Yields local cache immediately, then fetches network in background to update cache.', 'Social feeds, product catalogs, profile screens where loading speed is critical.', Colors.orange.shade800),
+      ('Network-First\n(Accuracy)', 'Tries network first. Falls back to local cache only if network fails.', 'Financial transactions, shopping checkout, live balances where fresh data is mandatory.', Colors.green.shade800),
+      ('Cache-Only\n(Offline)', 'Only reads from local DB. Never makes HTTP requests.', 'App configurations, static onboarding pages, localized translations.', Colors.blue.shade800),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: offlineColor.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        children: rows.asMap().entries.map((e) {
+          final i = e.key;
+          final r = e.value;
+          final isHeader = i == 0;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isHeader
+                  ? offlineColor.withValues(alpha: 0.1)
+                  : i.isEven
+                      ? offlineColor.withValues(alpha: 0.04)
+                      : Colors.transparent,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(i == 0 ? 10 : 0),
+                topRight: Radius.circular(i == 0 ? 10 : 0),
+                bottomLeft: Radius.circular(i == rows.length - 1 ? 10 : 0),
+                bottomRight: Radius.circular(i == rows.length - 1 ? 10 : 0),
+              ),
+              border: isHeader ? Border(bottom: BorderSide(color: offlineColor.withValues(alpha: 0.2))) : null,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    r.$1,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isHeader ? offlineColor : r.$4,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    r.$2,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+                      color: isHeader ? offlineColor : Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    r.$3,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+                      color: isHeader ? offlineColor : Colors.grey.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }

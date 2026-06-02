@@ -262,6 +262,48 @@ class DriftViewModel extends ChangeNotifier {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
+  // TRANSACTION ROLLBACK & ERROR HANDLING DEMO
+  //
+  // Catches SqliteException, logs steps and verifies atomicity rollback.
+  // ──────────────────────────────────────────────────────────────────────────
+  Future<void> runErrorAndRollbackDemo() async {
+    if (_isLoading) return;
+    _setLoading(true);
+    _addLog('─────', '──────────────────────────────────');
+    _addLog('ACTION', 'runErrorAndRollbackDemo() called');
+    _addLog('TRANSACTION', 'BEGIN TRANSACTION;');
+
+    try {
+      await _db.transaction(() async {
+        // 1. Insert a temporary task with fixed ID 999
+        final companion = TasksCompanion.insert(
+          id: const Value(999),
+          title: 'Transaction Temp Task #999',
+          priority: const Value(2),
+        );
+        await _dao.insertTask(companion);
+        _addLog('INSERT', 'into(tasks).insert(companion{id:999, title:"Transaction Temp Task #999"})');
+
+        // 2. Execute duplicate insert via raw SQL to trigger UNIQUE constraint SqliteException
+        _addLog('SQL_EXEC', 'INSERT INTO tasks (id, title, is_done, priority) VALUES (999, "Duplicate", 0, 1);');
+        await _db.customStatement('INSERT INTO tasks (id, title, is_done, priority) VALUES (999, "Duplicate", 0, 1);');
+
+        // This will never be reached
+        _addLog('TRANSACTION', 'COMMIT TRANSACTION;');
+      });
+    } catch (e) {
+      _addLog('ERROR', 'SqliteException caught: ${e.toString()}');
+      _addLog('ROLLBACK', 'Transaction automatically ROLLED BACK. Changes discarded.');
+    } finally {
+      // 3. Verify that Task 999 does not exist in the database (proves rollback worked)
+      final list = await _dao.getAllTasks();
+      final hasTask999 = list.any((t) => t.id == 999);
+      _addLog('VERIFY', 'Is Task 999 in DB? -> $hasTask999 (Expected: false)');
+      _setLoading(false);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
   // FILTER — changes the reactive stream source
   //
   // Drift's watchAllTasks(filter:) applies a WHERE clause to the stream query.

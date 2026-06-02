@@ -693,6 +693,44 @@ class _DriftDemoViewState extends State<DriftDemoView> {
   // ══════════════════════════════════════════════════════════════════════════
   Widget _buildActionsRow(DriftViewModel vm, ColorScheme colorScheme) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                const Icon(Icons.gavel, color: driftColor, size: 22),
+                const SizedBox(width: 8),
+                const Text('Drift Error Handling & Rollback',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              ]),
+              const SizedBox(height: 6),
+              Text(
+                'Demonstrates catching SqliteException and verification of atomic rollback behavior. Starts a transaction, inserts Task #999, triggers a UNIQUE constraint violation, and handles the rollback.',
+                style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant, height: 1.3),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6A1B9A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: vm.isLoading
+                    ? null
+                    : () => context.read<DriftViewModel>().runErrorAndRollbackDemo(),
+                icon: const Icon(Icons.bug_report_outlined),
+                label: const Text('Run Transaction Rollback Demo', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
       ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.amber.shade700,
@@ -729,7 +767,7 @@ class _DriftDemoViewState extends State<DriftDemoView> {
                       Text('Delete All Tasks?'),
                     ]),
                     content: const Text(
-                        'This runs delete(tasks).go() — removes all rows but keeps the table schema intact.'),
+                      'This runs delete(tasks).go() — removes all rows but keeps the table schema intact.'),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.of(ctx).pop(),

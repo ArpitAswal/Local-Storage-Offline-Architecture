@@ -396,10 +396,191 @@ class Article {
                 "• MongoDB Compass — but embedded directly in your Flutter app\n"
                 "It's one of Isar's most praised developer experience features.",
               ),
+              context.dividerSpace(16),
+
+              // ── Section 8: Embedded Objects ──────────────────────────────────
+              context.headTitle("8. Embedded Objects (Nested Models)", colorScheme.secondary),
+              const SizedBox(height: 10),
+
+              context.contentText("Define nested models without separate tables using @embedded", isarColor),
+              context.contentSectionContainer(
+                """import 'package:isar/isar.dart';
+
+@collection
+class IsarContact {
+  Id id = Isar.autoIncrement;
+  String name = '';
+  
+  // Nested complex object
+  IsarAddress? address;
+}
+
+@embedded // ← Declares this class can be nested inside collections
+class IsarAddress {
+  String? street;
+  String? city;
+  String? zipCode;
+
+  // RULE: Embedded classes must have a default constructor with no required parameters!
+  IsarAddress({this.street, this.city, this.zipCode});
+}""",
+              ),
+
+              context.theoryContentText(
+                "💡 Embedded Object Rules & Properties:\n"
+                "• No Primary Key: Embedded classes must NOT have an Id field.\n"
+                "• Inlined Storage: Isar stores the embedded object directly inside the parent "
+                "collection record in binary format. No separate database table is generated.\n"
+                "• Nullability: Fields in embedded classes can be nullable or have default values.\n"
+                "• Nested Lists: You can also define lists of embedded objects (e.g., List<IsarAddress> addresses) "
+                "which Isar serializes natively.",
+              ),
+              context.dividerSpace(16),
+
+              // ── Section 9: Error Handling & Concurrency ──────────────────
+              context.headTitle("9. Error Handling & Concurrency", colorScheme.secondary),
+              const SizedBox(height: 10),
+
+              context.contentText("ACID Transactions, Locking & Threading in Isar", isarColor),
+              context.contentSectionContainer(
+                """// 1. Handling Transaction Rollbacks
+try {
+  await isar.writeTxn(() async {
+    // Perform writes
+    await isar.isarContacts.put(contact);
+    
+    // If any error is thrown, the entire transaction rolls back!
+    throw Exception("Simulated crash mid-transaction");
+  });
+} catch (e) {
+  print("Transaction failed. All changes rolled back automatically!");
+}
+
+// 2. Concurrency Model (Single Writer, Multi-Reader)
+// - Only one writeTxn can execute at a time. Other writes wait in a queue.
+// - Reads are fully non-blocking and can run concurrently while writes execute.
+final readStart = DateTime.now();
+final contacts = await isar.isarContacts.where().findAll(); // Safe & instant!""",
+              ),
+
+              context.theoryContentText(
+                "🔐 Concurrency & Lock Handling:\n"
+                "• Background Threading: Isar is built to perform all core database operations "
+                "in a separate native thread (C++ core), preventing frame drops on the main Dart isolate.\n"
+                "• Write Transaction Locking: Writes block other writes, but NOT reads. If you write "
+                "from multiple isolates, Isar handles synchronization behind the scenes. However, you "
+                "should avoid long-running computations inside write transactions to prevent blocking the write queue.\n"
+                "• Database Locked States: If you attempt to open the same .isar database file from "
+                "two separate running processes (e.g., debug/test suites running simultaneously), "
+                "Isar will throw a 'DatabaseAlreadyOpenedException'. Always ensure the database is closed or shared.",
+              ),
+              context.dividerSpace(16),
+
+              // ── Section 10: Isar vs Hive vs SQLite ─────────────────────────
+              context.headTitle("10. Database Comparison", colorScheme.secondary),
+              const SizedBox(height: 10),
+
+              context.theoryContentText(
+                "Compare Isar's features against other popular Flutter storage engines "
+                "to make the right architectural choice for your app:",
+              ),
+              const SizedBox(height: 12),
+              const _IsarComparisonTable(),
               const SizedBox(height: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ISAR COMPARISON TABLE WIDGET
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _IsarComparisonTable extends StatelessWidget {
+  const _IsarComparisonTable();
+
+  static const Color _isarColor = Color(0xFFE64A19); // Deep Orange 700
+
+  @override
+  Widget build(BuildContext context) {
+    final headers = ['Feature', 'Isar', 'Hive', 'SQLite'];
+    final headerColors = [
+      Colors.grey.shade700,
+      _isarColor,
+      const Color(0xFFEF6C00), // Hive Orange
+      Colors.teal.shade700, // SQLite
+    ];
+    final rows = [
+      ['Data model', 'NoSQL ORM', 'Key-Value', 'Relational SQL'],
+      ['Schema required', 'Dart class ⚠️', 'Optional ✅', 'SQL DDL ⚠️'],
+      ['Auto ID', 'Auto-increment ✅', 'Manual key ❌', 'AUTOINCREMENT ✅'],
+      ['ACID support', 'Full (writeTxn) ✅', 'None ❌', 'Full (BEGIN/COMMIT) ✅'],
+      ['Queries', 'Fluent Type-safe ✅', 'Key/Map only ❌', 'SQL queries ✅'],
+      ['Indexes', 'Rich B-Tree ✅', 'None ❌', 'Custom SQL indexes ✅'],
+      ['Reactive', 'watch() Streams ✅', 'ValueListenable ⚠️', 'No ❌'],
+      ['Threading', 'Background Isolate ✅', 'Main thread blocks ⚠️', 'SQLite thread pool ✅'],
+      ['Best for', 'Fast complex NoSQL', 'Offline cache/configs', 'Relational data'],
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.deepOrange.shade200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: IntrinsicWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                color: Colors.deepOrange.shade50,
+                child: Row(
+                  children: headers.asMap().entries.map((e) => _cell(
+                    e.value,
+                    isHeader: true,
+                    color: headerColors[e.key],
+                    isFirst: e.key == 0,
+                  )).toList(),
+                ),
+              ),
+              ...rows.asMap().entries.map((rowEntry) => Container(
+                color: rowEntry.key.isEven ? Colors.deepOrange.shade50.withValues(alpha: 0.3) : Colors.white,
+                child: Row(
+                  children: rowEntry.value.asMap().entries.map((cellEntry) => _cell(
+                    cellEntry.value,
+                    isHeader: false,
+                    color: cellEntry.key == 0 ? Colors.grey.shade700 : Colors.grey.shade800,
+                    isFirst: cellEntry.key == 0,
+                  )).toList(),
+                ),
+              )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String text, {required bool isHeader, required Color color, required bool isFirst}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      constraints: const BoxConstraints(minWidth: 85),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.deepOrange.shade100, width: 0.8)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: isHeader || isFirst ? FontWeight.bold : FontWeight.normal,
+          color: color,
+          fontFamily: isHeader ? null : 'monospace',
+        ),
+        textAlign: isFirst ? TextAlign.left : TextAlign.center,
       ),
     );
   }

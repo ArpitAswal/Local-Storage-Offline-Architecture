@@ -428,6 +428,44 @@ Future<void> clearKeychainOnFirstLaunch() async {
 // GOLDEN RULE: Never store anything in plain storage that would
 // cause a security incident if an attacker read it.''',
               ),
+              context.dividerSpace(16),
+
+              // ── Section 8: Production Error Handling & Recovery ──────────
+              context.headTitle('8. Production Error Handling & Recovery', colorScheme.secondary),
+              const SizedBox(height: 10),
+              context.contentText('Handling KeyStore corruption and lockscreen changes', secureColor),
+              context.contentSectionContainer(
+                '''// ⚠️ WHY DECRYPTION FAILS IN PRODUCTION:
+// 1. PIN/Lockscreen changes: When a user changes or removes their lockscreen PIN,
+//    devices often invalidate/revoke hardware keys, throwing a PlatformException.
+// 2. Backup & Restore: Restoring a cloud backup onto a new device restores the
+//    encrypted SharedPreferences file, but NOT the hardware KeyStore keys.
+//    Attempting to decrypt these entries throws a PlatformException.
+// 3. Keystore corruptions: Hardware/firmware glitches can corrupt the key ring.
+//
+// 🛠️ RECOVERY PATTERN: Wipe corrupted entries and force re-login:
+
+Future<String?> readSecureData(String key) async {
+  try {
+    return await storage.read(key: key);
+  } on PlatformException catch (e) {
+    // Decryption has permanently failed (the key is lost or invalidated).
+    // MUST call deleteAll() to clear corrupted entries, otherwise the app
+    // will continuously crash on every startup when trying to read user credentials!
+    await storage.deleteAll();
+    
+    // Clear navigation stack and redirect to sign-in page
+    logoutAndRedirectToAuth();
+    return null;
+  }
+}''',
+              ),
+              context.theoryContentText(
+                '⚡ Key Production Takeaway:\n'
+                'Never let secure storage decryption failures bubble up to crashes. '
+                'Catch PlatformException, wipe the vault using deleteAll(), and redirect the user '
+                'to re-authenticate. This is a critical self-healing pattern for mobile apps.',
+              ),
               const SizedBox(height: 24),
             ],
           ),

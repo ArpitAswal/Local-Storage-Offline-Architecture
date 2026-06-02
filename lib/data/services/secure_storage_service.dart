@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 
 /// [SecureStorageService] - Singleton service wrapping FlutterSecureStorage.
 ///
@@ -116,5 +117,26 @@ class SecureStorageService {
   /// In production apps, call this on user logout to prevent token leaks.
   Future<void> deleteAll() async {
     await _storage.deleteAll();
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 9. ROBUST ERROR HANDLING & RECOVERY
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Reads a value securely, catching PlatformExceptions (KeyStore corruption/invalidation).
+  ///
+  /// If decryption fails (e.g. user changed device PIN, or backup/restore corrupted
+  /// the key links), this wipes the entire vault to prevent crash loops and throws a clean error.
+  Future<String?> readWithRobustHandling({required String key}) async {
+    try {
+      return await _storage.read(key: key);
+    } on PlatformException catch (e) {
+      // KeyStore decryption failures or key invalidations require a factory reset of the storage
+      await deleteAll();
+      throw PlatformException(
+        code: 'KEYSTORE_DECRYPTION_FAILED',
+        message: 'KeyStore/Keychain decryption failed ($e). Vault has been wiped to prevent crash loops. Please re-authenticate.',
+      );
+    }
   }
 }

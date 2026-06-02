@@ -601,8 +601,101 @@ final stream = db.tasksDao.watchAllTasks(); // Stream<List<Task>>''',
                 'no ANR or janky scrolling. sqflite also runs on a background '
                 'thread, but Drift\'s isolate setup provides even better isolation.',
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // ── Section 12: Drift Error Handling ──────────────────────────
+              context.headTitle('12. Drift Error Handling & Rollbacks', colorScheme.secondary),
+              const SizedBox(height: 10),
+              context.theoryContentText(
+                'Drift database operations run on top of SQLite, so runtime failures '
+                'throw a `SqliteException` (from the `sqlite3` package). Common errors include '
+                'UNIQUE constraint violations, NOT NULL constraint failures, or CHECK constraint '
+                'violations. Drift handles atomic rollbacks when exceptions occur inside a transaction block.',
+              ),
+              const SizedBox(height: 10),
+              context.contentText('Catching SqliteException & Rollback', driftColor),
+              context.contentSectionContainer(
+                'try {\n'
+                '  await db.transaction(() async {\n'
+                '    // 1. First insert executes successfully\n'
+                '    await db.tasksDao.insertTask(TasksCompanion.insert(id: Value(999), title: "Task 999"));\n\n'
+                '    // 2. Second insert uses raw SQL and triggers UNIQUE constraint violation\n'
+                '    await db.customStatement("INSERT INTO tasks (id, title) VALUES (999, \'Duplicate\');");\n'
+                '  });\n'
+                '} catch (e) {\n'
+                '  if (e is SqliteException) {\n'
+                '    print("Sqlite error caught: \${e.message} (code: \${e.extendedResultCode})");\n'
+                '  }\n'
+                '  // SQLite automatically triggers ROLLBACK. Task 999 is discarded from database!\n'
+                '}',
+              ),
+              const SizedBox(height: 20),
+
+              // ── Section 13: Local Storage Database Comparison ──────────────
+              context.headTitle('13. Local Storage Comparison Table', colorScheme.secondary),
+              const SizedBox(height: 10),
+              _buildDatabaseComparisonTable(context),
+              const SizedBox(height: 32),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatabaseComparisonTable(BuildContext context) {
+    final rows = [
+      ('Database', 'Data Model', 'Reactive', 'Type-Safety', 'CodeGen', 'Performance'),
+      ('Drift', 'Relational (SQLite)', '✅ Yes (.watch)', '✅ Compile-Time', 'Optional', 'Fast (Background Isolate)'),
+      ('sqflite', 'Relational (SQLite)', '❌ No (Manual)', '❌ String queries', '❌ None', 'Medium (Thread pool)'),
+      ('Hive', 'Document / NoSQL', '✅ Yes (ValueListenable)', '❌ Map/Adapter', 'Optional', 'Very Fast (Memory cache)'),
+      ('Isar', 'Document / NoSQL', '✅ Yes (.watch)', '✅ Compile-Time', '✅ Required', 'Extremely Fast (LMDB-based)'),
+      ('Secure Storage', 'Key-Value', '❌ No (Manual)', '❌ String values', '❌ None', 'Slow (OS Cryptography)'),
+      ('SharedPrefs', 'Key-Value', '❌ No (Manual)', '❌ Basic keys', '❌ None', 'Medium (Disk XML writes)'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: driftColor.withValues(alpha: 0.2)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: 580,
+          child: Column(
+            children: rows.asMap().entries.map((e) {
+              final i = e.key;
+              final r = e.value;
+              final isHeader = i == 0;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isHeader
+                      ? driftColor.withValues(alpha: 0.1)
+                      : i.isEven
+                          ? driftColor.withValues(alpha: 0.04)
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(i == 0 ? 10 : 0),
+                    topRight: Radius.circular(i == 0 ? 10 : 0),
+                    bottomLeft: Radius.circular(i == rows.length - 1 ? 10 : 0),
+                    bottomRight: Radius.circular(i == rows.length - 1 ? 10 : 0),
+                  ),
+                  border: isHeader ? Border(bottom: BorderSide(color: driftColor.withValues(alpha: 0.2))) : null,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(flex: 2, child: Text(r.$1, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: isHeader ? driftColor : Colors.indigo.shade800))),
+                    Expanded(flex: 3, child: Text(r.$2, style: TextStyle(fontSize: 10, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal))),
+                    Expanded(flex: 2, child: Text(r.$3, style: TextStyle(fontSize: 10, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal))),
+                    Expanded(flex: 2, child: Text(r.$4, style: TextStyle(fontSize: 10, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal))),
+                    Expanded(flex: 2, child: Text(r.$5, style: TextStyle(fontSize: 10, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal))),
+                    Expanded(flex: 3, child: Text(r.$6, style: TextStyle(fontSize: 10, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal))),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ),
       ),

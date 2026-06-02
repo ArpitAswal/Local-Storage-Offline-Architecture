@@ -130,4 +130,78 @@ class HiveService {
     await _primitiveBox.clear();
     await _userBox.clear();
   }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 5. Advanced Feature Demonstrations
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Demonstrates LazyBox behavior: writes 3 entries and reads them back asynchronously.
+  /// Returns a list of log strings describing each operation for the terminal console.
+  Future<List<String>> lazyBoxDemo() async {
+    const String lazyBoxName = 'lazy_demo_box';
+    final List<String> logs = [];
+
+    // FLOW: Step 1 - Open a LazyBox (only keys are loaded into RAM, not values)
+    final LazyBox<String> lazyBox = await Hive.openLazyBox<String>(lazyBoxName);
+    logs.add('openLazyBox<String>(\'$lazyBoxName\') opened — ${lazyBox.keys.length} keys in RAM.');
+
+    // FLOW: Step 2 - Write 3 string values (same API as regular Box)
+    await lazyBox.put('item_1', 'Flutter');
+    await lazyBox.put('item_2', 'Hive');
+    await lazyBox.put('item_3', 'LazyBox');
+    logs.add('put(\'item_1\', \'Flutter\'), put(\'item_2\', \'Hive\'), put(\'item_3\', \'LazyBox\') written.');
+    logs.add('Keys in RAM now: ${lazyBox.keys.toList()} — values still ON DISK only.');
+
+    // FLOW: Step 3 - Read values asynchronously (each .get() triggers a disk read)
+    final v1 = await lazyBox.get('item_1');
+    final v2 = await lazyBox.get('item_2');
+    final v3 = await lazyBox.get('item_3');
+    logs.add('await lazyBox.get(\'item_1\') → \'$v1\' (async disk read ✓)');
+    logs.add('await lazyBox.get(\'item_2\') → \'$v2\' (async disk read ✓)');
+    logs.add('await lazyBox.get(\'item_3\') → \'$v3\' (async disk read ✓)');
+
+    // FLOW: Step 4 - Clean up the demo box
+    await lazyBox.clear();
+    await Hive.deleteBoxFromDisk(lazyBoxName);
+    logs.add('Demo box cleared and deleted from disk.');
+
+    return logs;
+  }
+
+  /// Demonstrates AES-256 encryption: generates a key, opens an encrypted box,
+  /// writes a secret value, reads it back, and cleans up.
+  /// Returns log strings for the terminal console.
+  Future<List<String>> encryptionDemo() async {
+    const String encBoxName = 'encrypted_demo_box';
+    final List<String> logs = [];
+
+    // FLOW: Step 1 - Generate a 256-bit (32-byte) cryptographically secure key
+    final List<int> encryptionKey = Hive.generateSecureKey();
+    logs.add('Hive.generateSecureKey() → ${encryptionKey.length * 8}-bit key generated (${encryptionKey.length} bytes).');
+
+    // FLOW: Step 2 - Open a box with the AES cipher
+    final Box<String> encryptedBox = await Hive.openBox<String>(
+      encBoxName,
+      encryptionCipher: HiveAesCipher(encryptionKey),
+    );
+    logs.add('openBox<String>(\'$encBoxName\', encryptionCipher: HiveAesCipher(key)) opened.');
+    logs.add('All values will be AES-256-CBC encrypted before being written to disk.');
+
+    // FLOW: Step 3 - Write a sensitive value (it is stored encrypted on disk)
+    const String secretValue = 'my_super_secret_api_key_12345';
+    await encryptedBox.put('api_key', secretValue);
+    logs.add('put(\'api_key\', \'$secretValue\') → encrypted and written to disk ✓');
+
+    // FLOW: Step 4 - Read the value back (Hive decrypts transparently)
+    final String? readBack = encryptedBox.get('api_key');
+    logs.add('get(\'api_key\') → \'$readBack\' (decrypted transparently by HiveAesCipher ✓)');
+    logs.add('Raw .hive file bytes are unreadable without the 256-bit key.');
+
+    // FLOW: Step 5 - Clean up the demo encrypted box
+    await encryptedBox.clear();
+    await Hive.deleteBoxFromDisk(encBoxName);
+    logs.add('Encrypted demo box deleted from disk. Key discarded from memory.');
+
+    return logs;
+  }
 }

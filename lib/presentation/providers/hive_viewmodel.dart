@@ -14,12 +14,16 @@ class HiveViewModel extends ChangeNotifier {
   Map<String, dynamic> _primitiveData = {};
   List<User> _users = [];
   final List<String> _consoleLogs = [];
+  bool _isLazyBoxRunning = false;
+  bool _isEncryptionRunning = false;
 
   // Read-only getters for the UI View layer
   bool get isInitialized => _isInitialized;
   Map<String, dynamic> get primitiveData => _primitiveData;
   List<User> get users => _users;
   List<String> get consoleLogs => _consoleLogs;
+  bool get isLazyBoxRunning => _isLazyBoxRunning;
+  bool get isEncryptionRunning => _isEncryptionRunning;
 
   /// Initializes the Hive database, registers the adapter, and pulls the initial data.
   Future<void> initialize() async {
@@ -200,6 +204,43 @@ class HiveViewModel extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _addLog('ERROR', 'Failed to wipe database boxes: $e');
+    }
+  }
+
+  /// Demonstrates LazyBox: opens a lazy box, writes 3 entries, reads them back asynchronously.
+  Future<void> demoLazyBox() async {
+    _isLazyBoxRunning = true;
+    notifyListeners();
+    try {
+      _addLog('BOX', 'Hive.openLazyBox<String>(\'lazy_demo\') — only KEYs loaded to RAM.');
+      final results = await _service.lazyBoxDemo();
+      for (final log in results) {
+        _addLog('LazyBox', log);
+      }
+      _addLog('BOX', 'LazyBox demo complete. Values fetched asynchronously from disk.');
+    } catch (e) {
+      _addLog('ERROR', 'LazyBox demo failed: $e');
+    } finally {
+      _isLazyBoxRunning = false;
+      notifyListeners();
+    }
+  }
+
+  /// Demonstrates AES-256 encryption: generates a key, writes an encrypted value, reads it back.
+  Future<void> demoEncryption() async {
+    _isEncryptionRunning = true;
+    notifyListeners();
+    try {
+      _addLog('SYSTEM', 'Generating 256-bit secure key: final key = Hive.generateSecureKey()');
+      final results = await _service.encryptionDemo();
+      for (final log in results) {
+        _addLog('ENCRYPT', log);
+      }
+    } catch (e) {
+      _addLog('ERROR', 'Encryption demo failed: $e');
+    } finally {
+      _isEncryptionRunning = false;
+      notifyListeners();
     }
   }
 }

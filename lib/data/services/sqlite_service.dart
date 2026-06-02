@@ -22,7 +22,7 @@ class SQLiteService {
   static final SQLiteService instance = SQLiteService._internal();
 
   static const String _dbName = 'local_storage_demo.db';
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
   static const String _tableName = 'todos';
 
   Database? _database;
@@ -50,6 +50,10 @@ class SQLiteService {
     _database = await openDatabase(
       fullPath,
       version: _dbVersion,
+      onConfigure: (db) async {
+        // Enforce foreign keys (disabled by default in SQLite for backwards compatibility)
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
       onCreate: _createSchema,
       onUpgrade: _upgradeSchema,
     );
@@ -64,12 +68,20 @@ class SQLiteService {
   /// like CREATE TABLE, CREATE INDEX, ALTER TABLE.
   Future<void> _createSchema(Database db, int version) async {
     await db.execute('''
+      CREATE TABLE categories (
+        id   INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+      )
+    ''');
+    await db.execute('''
       CREATE TABLE $_tableName (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        title    TEXT NOT NULL,
-        is_done  INTEGER NOT NULL DEFAULT 0,
-        due_date TEXT,
-        priority INTEGER NOT NULL DEFAULT 1
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        title       TEXT NOT NULL,
+        is_done     INTEGER NOT NULL DEFAULT 0,
+        due_date    TEXT,
+        priority    INTEGER NOT NULL DEFAULT 1,
+        category_id INTEGER,
+        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
       )
     ''');
     // Optionally create indexes for faster queries on large datasets:
@@ -81,10 +93,19 @@ class SQLiteService {
   /// FLOW: Add new columns or tables here without losing existing data.
   /// Always use ALTER TABLE ADD COLUMN (SQLite doesn't support DROP COLUMN).
   Future<void> _upgradeSchema(Database db, int oldVersion, int newVersion) async {
-    // Example migration from v1 to v2:
-    // if (oldVersion < 2) {
-    //   await db.execute('ALTER TABLE $_tableName ADD COLUMN notes TEXT');
-    // }
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+          id   INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE
+        )
+      ''');
+      try {
+        await db.execute('ALTER TABLE $_tableName ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE');
+      } catch (e) {
+        // Column might already exist or table was already customized
+      }
+    }
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -305,5 +326,75 @@ class SQLiteService {
       stats[label] = row['total'] as int;
     }
     return stats;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 13. FOREIGN KEYS & ERROR HANDLING DEMO
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Demonstrates Foreign Key Enforcement & Cascading Deletes in SQLite.
+  /// Shows catching DatabaseExceptions for foreign key violations.
+  Future<List<String>> demoForeignKeysAndErrors() async {
+    final db = await _db;
+    final List<String> logs = [];
+
+    // Step 1: Create a temporary category "Work"
+    logs.add("Step 1: Inserting category 'Work'...");
+    final categoryId = await db.insert(
+      'categories',
+      {'name': 'Work'},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    
+    // Find actual ID in case category "Work" was ignored (already exists)
+    var actualCatId = categoryId;
+    if (actualCatId <= 0) {
+      final rows = await db.query('categories', where: 'name = ?', whereArgs: ['Work']);
+      actualCatId = rows.first['id'] as int;
+    }
+    logs.add("Category 'Work' active with ID: $actualCatId");
+
+    // Step 2: Insert a todo linked to this category ID
+    logs.add("Step 2: Inserting todo 'Write Unit Tests' referencing category ID $actualCatId...");
+    final todoId = await db.insert(_tableName, {
+      'title': 'Write Unit Tests',
+      'is_done': 0,
+      'due_date': '2026-06-02',
+      'priority': 2,
+      'category_id': actualCatId,
+    });
+    logs.add("Todo inserted successfully (id=$todoId, category_id=$actualCatId)");
+
+    // Step 3: Attempt to violate foreign key constraints (insert under non-existent category 999)
+    logs.add("Step 3: Attempting to insert todo referencing non-existent category 999...");
+    try {
+      await db.insert(_tableName, {
+        'title': 'Orphaned Task',
+        'is_done': 0,
+        'due_date': '2026-06-02',
+        'priority': 1,
+        'category_id': 999, // Invalid ID!
+      });
+      logs.add("❌ FAILURE: Insert succeeded! Foreign keys are NOT being enforced.");
+    } on DatabaseException catch (e) {
+      logs.add("✅ SUCCESS: Caught expected DatabaseException!");
+      logs.add("Details: ${e.toString().trim()}");
+    }
+
+    // Step 4: Delete the category and verify cascade delete of the todo
+    logs.add("Step 4: Deleting category 'Work' (ID $actualCatId) to test ON DELETE CASCADE...");
+    await db.delete('categories', where: 'id = ?', whereArgs: [actualCatId]);
+
+    // Check if the todo still exists
+    final todoCheck = await db.query(_tableName, where: 'id = ?', whereArgs: [todoId]);
+    if (todoCheck.isEmpty) {
+      logs.add("✅ CASCADE SUCCESS: Todo (id=$todoId) was automatically deleted when Category was deleted!");
+    } else {
+      logs.add("❌ CASCADE FAILURE: Todo (id=$todoId) still exists in DB!");
+      // Clean up manually if cascade failed
+      await db.delete(_tableName, where: 'id = ?', whereArgs: [todoId]);
+    }
+
+    return logs;
   }
 }

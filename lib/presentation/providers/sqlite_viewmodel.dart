@@ -27,6 +27,7 @@ class SQLiteViewModel extends ChangeNotifier {
   String _activeFilter = 'all';       // 'all' | 'pending' | 'done'
   final List<String> _consoleLogs = [];
   TodoItem? _editingItem;
+  bool _isDemoRunning = false;
 
   // ──────────────────────────────────────────────────────────────────────────
   // Public Getters
@@ -38,6 +39,7 @@ class SQLiteViewModel extends ChangeNotifier {
   String get activeFilter => _activeFilter;
   List<String> get consoleLogs => _consoleLogs;
   TodoItem? get editingItem => _editingItem;
+  bool get isDemoRunning => _isDemoRunning;
   int get totalCount => _todos.length;
   int get doneCount => _todos.where((t) => t.isDone).length;
   int get pendingCount => _todos.where((t) => !t.isDone).length;
@@ -285,5 +287,40 @@ class SQLiteViewModel extends ChangeNotifier {
         '${now.minute.toString().padLeft(2, '0')}:'
         '${now.second.toString().padLeft(2, '0')}';
     _consoleLogs.insert(0, '[$t] $type: $message');
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // FOREIGN KEY & CASCADE DELETE DEMO
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Runs the Foreign Key Enforcement, DatabaseException & Cascade Delete demo.
+  Future<void> runForeignKeyDemo() async {
+    if (_isDemoRunning) return;
+    _isDemoRunning = true;
+    _isLoading = true;
+    _addLog('DEMO', 'Initializing SQLite Foreign Key & Error Demo...');
+    notifyListeners();
+
+    try {
+      final steps = await _service.demoForeignKeysAndErrors();
+      for (final step in steps) {
+        if (step.contains('✅ SUCCESS') || step.contains('✅ CASCADE SUCCESS')) {
+          _addLog('DEMO (FK)', step);
+        } else if (step.contains('❌ FAILURE') || step.contains('❌ CASCADE FAILURE')) {
+          _addLog('WARNING', step);
+        } else if (step.contains('Exception')) {
+          _addLog('ERROR', step);
+        } else {
+          _addLog('DEMO (FK)', step);
+        }
+      }
+      await _refreshTodos();
+    } catch (e) {
+      _addLog('ERROR', 'Foreign key demo failed: $e');
+    } finally {
+      _isDemoRunning = false;
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

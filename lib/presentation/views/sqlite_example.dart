@@ -90,6 +90,8 @@ class _SQLiteDemoViewState extends State<SQLiteDemoView> {
                   _buildFilterAndList(vm, colorScheme),
                   const SizedBox(height: 12),
                   _buildActionsRow(vm, colorScheme),
+                  const SizedBox(height: 12),
+                  _buildForeignKeyCard(vm, colorScheme),
                   const SizedBox(height: 24),
                 ],
               ),
@@ -692,6 +694,53 @@ class _SQLiteDemoViewState extends State<SQLiteDemoView> {
       ),
       child: Text(label,
           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+    );
+  }
+
+  /// Foreign Key & DatabaseException recovery Demo Card
+  Widget _buildForeignKeyCard(SQLiteViewModel vm, ColorScheme colorScheme) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Icon(Icons.link_outlined, color: sqlColor, size: 22),
+              const SizedBox(width: 8),
+              const Text('Foreign Key & Error Demo', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              'Enforces PRAGMA foreign_keys = ON, executes ON DELETE CASCADE, and catches unique constraint/foreign key violation DatabaseExceptions.',
+              style: TextStyle(fontSize: 11.5, color: colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: sqlColor,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: vm.isDemoRunning || vm.isLoading
+                  ? null
+                  : () => vm.runForeignKeyDemo(),
+              icon: vm.isDemoRunning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.psychology_outlined, size: 18),
+              label: const Text('Run Foreign Key & Error Demo', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

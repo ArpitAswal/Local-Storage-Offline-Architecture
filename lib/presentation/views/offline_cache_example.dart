@@ -88,6 +88,8 @@ class _OfflineCacheDemoViewState extends State<OfflineCacheDemoView>
                   const SizedBox(height: 12),
                   _buildStatusBanners(state),
                   const SizedBox(height: 12),
+                  _buildOutboxStatusCard(vm),
+                  const SizedBox(height: 12),
                   _buildControlPanel(context, vm),
                   const SizedBox(height: 12),
                   _buildEventLog(vm),
@@ -240,6 +242,132 @@ class _OfflineCacheDemoViewState extends State<OfflineCacheDemoView>
         ),
       ),
     );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // OUTBOX STATUS CARD — shows queued offline writes
+  // ══════════════════════════════════════════════════════════════════════════
+  Widget _buildOutboxStatusCard(OfflineViewModel vm) {
+    final count = vm.pendingOutboxCount;
+    if (count == 0 && !vm.isSyncingOutbox) return const SizedBox.shrink();
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: offlineColor.withValues(alpha: 0.3)),
+          color: offlineColor.withValues(alpha: 0.03),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sync_alt, color: offlineColor, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Offline Sync Queue (Outbox)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: offlineColor,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: vm.isSyncingOutbox ? Colors.blue.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    vm.isSyncingOutbox ? 'Syncing...' : '$count pending',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: vm.isSyncingOutbox ? Colors.blue.shade700 : Colors.orange.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'While offline, your updates are cached locally in the Outbox box. They will automatically sync to the Mock Remote API when the network is restored or manually processed.',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3),
+            ),
+            if (vm.pendingOutbox.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                constraints: const BoxConstraints(maxHeight: 100),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.all(6),
+                  itemCount: vm.pendingOutbox.length,
+                  itemBuilder: (context, index) {
+                    final item = vm.pendingOutbox[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Icon(Icons.arrow_right, size: 14, color: offlineColor),
+                          Expanded(
+                            child: Text(
+                              'Product #${item['productId']}: Toggle Favorite → ${item['value']}',
+                              style: const TextStyle(fontFamily: 'monospace', fontSize: 10.5),
+                            ),
+                          ),
+                          Text(
+                            _formatQueueTime(item['timestamp'] as String),
+                            style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: offlineColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: vm.isSyncingOutbox ? null : () => vm.syncPendingOutbox(),
+              icon: vm.isSyncingOutbox
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.sync, size: 16),
+              label: const Text('Process Sync Queue (Outbox)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatQueueTime(String tsString) {
+    try {
+      final dt = DateTime.parse(tsString);
+      return _formatTime(dt);
+    } catch (_) {
+      return '';
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -861,11 +989,29 @@ class _OfflineCacheDemoViewState extends State<OfflineCacheDemoView>
                 ),
               ),
               const SizedBox(width: 8),
-              Text('\$${product.price.toStringAsFixed(2)}',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: offlineColor)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('\$${product.price.toStringAsFixed(2)}',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: offlineColor)),
+                  const SizedBox(height: 4),
+                  IconButton(
+                    icon: Icon(
+                      product.isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: product.isFavorite ? Colors.red : Colors.grey.shade500,
+                      size: 22,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      context.read<OfflineViewModel>().toggleFavorite(product.id);
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 8),

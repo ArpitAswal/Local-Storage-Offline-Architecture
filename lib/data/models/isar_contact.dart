@@ -36,8 +36,25 @@ class IsarContact {
   // DateTime.now() is stored as microseconds since epoch in the binary record.
   DateTime createdAt = DateTime.now();
 
+  // FLOW: Step 7.5 - A nested embedded object field.
+  // Embedded objects do not have an id field, do not have a separate table,
+  // and are stored directly inside the parent collection record.
+  IsarAddress? address;
+
   // FLOW: Step 8 - Override toString for console log readability.
   @override
   String toString() =>
-      'IsarContact(id: $id, name: $name, email: $email, role: $role)';
+      'IsarContact(id: $id, name: $name, email: $email, role: $role, address: ${address?.street ?? "None"})';
+}
+
+// FLOW: Step 9 - Define the embedded class.
+// Marks this class as embedded inside another collection.
+@embedded
+class IsarAddress {
+  String? street;
+  String? city;
+  String? zipCode;
+
+  // Embedded objects must have a default constructor with no required parameters.
+  IsarAddress({this.street, this.city, this.zipCode});
 }

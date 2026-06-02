@@ -42,6 +42,7 @@ class Product {
   final int stock;
   final bool isNew;
   final String description;
+  final bool isFavorite;
   final String source; // 'cache' or 'network'
 
   const Product({
@@ -53,6 +54,7 @@ class Product {
     required this.stock,
     required this.isNew,
     required this.description,
+    this.isFavorite = false,
     this.source = 'network',
   });
 
@@ -66,6 +68,7 @@ class Product {
         'stock': stock,
         'isNew': isNew,
         'description': description,
+        'isFavorite': isFavorite,
       };
 
   // Deserialise from Hive JSON Map
@@ -79,11 +82,12 @@ class Product {
       stock: json['stock'] as int,
       isNew: json['isNew'] as bool,
       description: json['description'] as String,
+      isFavorite: json['isFavorite'] as bool? ?? false,
       source: source,
     );
   }
 
-  Product copyWith({String? source}) => Product(
+  Product copyWith({String? source, bool? isFavorite}) => Product(
         id: id,
         name: name,
         category: category,
@@ -92,6 +96,7 @@ class Product {
         stock: stock,
         isNew: isNew,
         description: description,
+        isFavorite: isFavorite ?? this.isFavorite,
         source: source ?? this.source,
       );
 }
@@ -269,15 +274,22 @@ class ProductRepository {
   static const String _boxName = 'offline_products_cache';
   static const String _cacheKey = 'products_list';
   static const String _syncTimeKey = 'last_sync_time';
+  static const String _outboxBoxName = 'offline_sync_outbox';
 
   late Box _box;
+  late Box _outboxBox;
   bool _isBoxOpen = false;
+  bool _isOutboxOpen = false;
 
   // ── INITIALIZATION ─────────────────────────────────────────────────────────
   Future<void> initialize() async {
     if (!_isBoxOpen) {
       _box = await Hive.openBox(_boxName);
       _isBoxOpen = true;
+    }
+    if (!_isOutboxOpen) {
+      _outboxBox = await Hive.openBox(_outboxBoxName);
+      _isOutboxOpen = true;
     }
   }
 
@@ -311,6 +323,77 @@ class ProductRepository {
   Future<void> clearCache() async {
     await _box.delete(_cacheKey);
     await _box.delete(_syncTimeKey);
+    if (_isOutboxOpen) {
+      await _outboxBox.clear();
+    }
+  }
+
+  // ── PENDING OUTBOX METHODS ──────────────────────────────────────────────────
+  List<Map<dynamic, dynamic>> getPendingOutbox() {
+    if (!_isOutboxOpen) return [];
+    return _outboxBox.values
+        .map((e) => Map<dynamic, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  Future<void> toggleFavoriteOffline(int productId) async {
+    await initialize();
+
+    // 1. Optimistic Cache Update
+    final cached = _readCache();
+    final index = cached.indexWhere((p) => p.id == productId);
+    if (index != -1) {
+      final oldProduct = cached[index];
+      final newFavoriteState = !oldProduct.isFavorite;
+      cached[index] = oldProduct.copyWith(isFavorite: newFavoriteState);
+      await _writeCache(cached);
+
+      // 2. Queue the write to the outbox
+      final actionId = DateTime.now().millisecondsSinceEpoch.toString();
+      await _outboxBox.put(actionId, {
+        'id': actionId,
+        'productId': productId,
+        'action': 'toggle_favorite',
+        'value': newFavoriteState,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
+    }
+  }
+
+  Future<void> syncOutbox(bool simulateError) async {
+    await initialize();
+    final keys = _outboxBox.keys.toList();
+    if (keys.isEmpty) return;
+
+    // Simulate minor networking latency
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    if (simulateError) {
+      throw Exception('Network error: Unable to reach sync endpoint (simulated)');
+    }
+
+    // Process all pending items in outbox and remove them upon successful sync
+    for (final key in keys) {
+      await _outboxBox.delete(key);
+    }
+  }
+
+  // Helper to apply outbox adjustments to fresh network data
+  List<Product> _applyPendingOutbox(List<Product> products) {
+    if (!_isOutboxOpen || _outboxBox.isEmpty) return products;
+
+    final pending = getPendingOutbox();
+    final result = List<Product>.from(products);
+
+    for (final item in pending) {
+      final productId = item['productId'] as int;
+      final value = item['value'] as bool;
+      final idx = result.indexWhere((p) => p.id == productId);
+      if (idx != -1) {
+        result[idx] = result[idx].copyWith(isFavorite: value);
+      }
+    }
+    return result;
   }
 
   // ── CORE: CACHE-FIRST STREAM ───────────────────────────────────────────────
@@ -339,7 +422,7 @@ class ProductRepository {
     //
     // Key insight: We set networkStatus = loading so the UI shows a
     // "Syncing..." indicator alongside the cached data (not a full-screen
-    // spinner that blocks everything).
+    // janky spinner).
     yield RepositoryState(
       products: cachedProducts.map((p) => p.copyWith(source: 'cache')).toList(),
       source: cachedProducts.isEmpty ? DataSource.empty : DataSource.cache,
@@ -354,11 +437,14 @@ class ProductRepository {
         delaySeconds: networkDelaySeconds,
       );
 
+      // Apply pending outbox offline modifications to fresh data so they aren't lost
+      final mergedProducts = _applyPendingOutbox(freshProducts);
+
       // ── STEP 3a: Success — update cache and yield fresh data ──────────────
-      await _writeCache(freshProducts);
+      await _writeCache(mergedProducts);
 
       yield RepositoryState(
-        products: freshProducts.map((p) => p.copyWith(source: 'network')).toList(),
+        products: mergedProducts.map((p) => p.copyWith(source: 'network')).toList(),
         source: DataSource.network,
         networkStatus: NetworkStatus.success,
         lastSyncTime: lastSyncTime,
@@ -367,9 +453,6 @@ class ProductRepository {
       // ── STEP 3b: Failure — yield stale cache with error ───────────────────
       // This is GRACEFUL DEGRADATION: even with no network, the user
       // still sees their last cached data instead of a blank screen.
-      //
-      // Real apps (Gmail, Spotify): show a "No internet — showing cached data"
-      // banner, but the content is still visible and usable.
       yield RepositoryState(
         products: cachedProducts.map((p) => p.copyWith(source: 'cache')).toList(),
         source: cachedProducts.isEmpty ? DataSource.empty : DataSource.cache,
