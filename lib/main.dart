@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'data/models/user.dart';
-import 'presentation/providers/hive_viewmodel.dart';
-import 'presentation/providers/shared_preferences_viewmodel.dart';
-import 'presentation/providers/isar_viewmodel.dart';
-import 'presentation/providers/secure_storage_viewmodel.dart';
-import 'presentation/providers/sqlite_viewmodel.dart';
-import 'presentation/providers/drift_viewmodel.dart';
-import 'presentation/providers/offline_viewmodel.dart';
+import 'features/hive/models/user.dart';
+import 'features/hive/hive_viewmodel.dart';
+import 'features/shared_preferences/shared_preferences_viewmodel.dart';
+import 'features/isar/isar_viewmodel.dart';
+import 'features/secure_storage/secure_storage_viewmodel.dart';
+import 'features/sqlite/sqlite_viewmodel.dart';
+import 'features/drift/drift_viewmodel.dart';
+import 'features/offline_cache/offline_viewmodel.dart';
 import 'presentation/views/home_screen.dart';
 
 void main() async {

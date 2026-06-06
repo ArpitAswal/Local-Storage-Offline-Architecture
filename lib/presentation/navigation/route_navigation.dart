@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../views/shared_pref_screen.dart';
-import '../views/hive_screen.dart';
-import '../views/isar_screen.dart';
-import '../views/secure_storage_screen.dart';
-import '../views/drift_screen.dart';
-import '../views/sql_lite_screen.dart';
-import '../views/offline_cache_screen.dart';
+import '../../features/shared_preferences/shared_pref_screen.dart';
+import '../../features/hive/hive_screen.dart';
+import '../../features/isar/isar_screen.dart';
+import '../../features/secure_storage/secure_storage_screen.dart';
+import '../../features/drift/drift_screen.dart';
+import '../../features/sqlite/sql_lite_screen.dart';
+import '../../features/offline_cache/offline_cache_screen.dart';
 
 /// [RouteNavigation] - A clean wrapper around Flutter's Navigator system.
 /// Keeps route builders separated from views for better architecture compliance.

@@ -13,13 +13,13 @@
 
 import 'package:flutter/material.dart';
 import '../navigation/route_navigation.dart';
-import 'shared_pref_screen.dart';
-import 'hive_screen.dart';
-import 'isar_screen.dart';
-import 'secure_storage_screen.dart';
-import 'drift_screen.dart';
-import 'sql_lite_screen.dart';
-import 'offline_cache_screen.dart';
+import '../../features/shared_preferences/shared_pref_screen.dart';
+import '../../features/hive/hive_screen.dart';
+import '../../features/isar/isar_screen.dart';
+import '../../features/secure_storage/secure_storage_screen.dart';
+import '../../features/drift/drift_screen.dart';
+import '../../features/sqlite/sql_lite_screen.dart';
+import '../../features/offline_cache/offline_cache_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
