@@ -2,6 +2,13 @@
 
 This module explains how to work with raw SQLite databases in Flutter using the `sqflite` package. It focuses on setting up relational schemas, enforcing foreign keys, executing raw SQL, and handling database constraint exceptions.
 
+<p align="center">
+  <img src="../../../assets/screenshots/sqlite_guide.png" width="320" alt="SQLite Database Guide Preview" />
+
+  <img src="../../../assets/screenshots/sqlite_lab.png" width="320" alt="SQLite Interactive Lab Preview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
 ---
 
 ## 🗄 sqflite: Embedded SQL Database for Flutter

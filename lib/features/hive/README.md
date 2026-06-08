@@ -2,6 +2,13 @@
 
 Hive is a lightning-fast, key-value NoSQL database built entirely in Dart. Instead of tables, SQL queries, or schema configurations, Hive saves data in binary files called 'Boxes'. It caches active boxes in memory for instant reads.
 
+<p align="center">
+  <img src="../../../assets/screenshots/hive_guide.png" width="320" alt="Hive NoSQL Guide Preview" />
+
+  <img src="../../../assets/screenshots/hive_lab.png" width="320" alt="Hive Interactive Lab Preview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
 ---
 
 ## 1. Core Database Architecture & Setup

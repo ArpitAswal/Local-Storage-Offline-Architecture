@@ -2,6 +2,13 @@
 
 Drift (formerly Moor) is a Flutter Favorite package that wraps SQLite with a Dart-first, type-safe API. Unlike sqflite where you write raw SQL strings, Drift generates Dart query methods that the compiler validates at build time. Any query can be turned into a reactive Stream that auto-pushes changes to the UI — no `setState()` or manual database polling needed.
 
+<p align="center">
+  <img src="../../../assets/screenshots/drift_guide.png" width="320" alt="Drift Database Guide Preview" />
+
+  <img src="../../../assets/screenshots/drift_lab.png" width="320" alt="Drift Interactive Lab Preview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
 ---
 
 ## 1. Drift vs sqflite (Raw SQLite)

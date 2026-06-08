@@ -2,6 +2,13 @@
 
 `flutter_secure_storage` stores key-value pairs using the platform's native hardware-backed encryption. Unlike SharedPreferences or Hive, data is encrypted with AES-256 and the encryption keys live inside a hardware security module (Android KeyStore or iOS Secure Enclave) that NEVER exposes them to user-space code.
 
+<p align="center">
+  <img src="../../../assets/screenshots/secure_storage_guide.png" width="320" alt="Secure Storage Guide Preview" />
+
+  <img src="../../../assets/screenshots/secure_storage_lab.png" width="320" alt="Secure Storage Lab Preview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
 ---
 
 ## 1. Why Not SharedPreferences or Hive?

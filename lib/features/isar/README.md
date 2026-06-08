@@ -2,6 +2,13 @@
 
 Isar is an extremely fast, fully async NoSQL database built for Flutter. Unlike Hive's box-based key-value storage, Isar provides auto-incremented integer IDs, typed fluent query builders, ACID-compliant write transactions, and reactive Streams — all generated at build time with zero boilerplate.
 
+<p align="center">
+  <img src="../../../assets/screenshots/isar_guide.png" width="320" alt="Isar Database Guide Preview" />
+
+  <img src="../../../assets/screenshots/isar_lab.png" width="320" alt="Isar Interactive Lab Preview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
 ---
 
 ## 1. Setup & pubspec.yaml

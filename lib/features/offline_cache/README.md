@@ -2,6 +2,13 @@
 
 Offline-First is not a library — it's an architectural pattern. The Repository layer coordinates between a local cache (e.g., Hive) and a remote API, ensuring users always see content instantly, even with no internet connection. This pattern is used by Spotify, Gmail, Instagram, Uber, and more.
 
+<p align="center">
+  <img src="../../../assets/screenshots/offline_cache_guide.png" width="320" alt="Offline-First Guide Preview" />
+
+  <img src="../../../assets/screenshots/offline_cache_lab.png" width="320" alt="Offline-First Interactive Lab Preview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+</p>
+
 ---
 
 ## 1. Architecture Overview

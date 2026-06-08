@@ -2,6 +2,12 @@
 
 In Flutter, SharedPreferences is a key-value store backed by XML on Android and NSUserDefaults on iOS. Flutter 3.22 introduced major performance upgrades via modern async & cache architectures.
 
+<p align="center">
+  <img src="../../../assets/screenshots/shared_preferences_guide.png" width="320" alt="Shared Preferences Guide Preview" />
+ &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="../../../assets/screenshots/shared_preferences_lab.png" width="320" alt="Shared Preferences Lab Preview" />
+</p>
+
 ---
 
 ## 1. Setup & pubspec.yaml
