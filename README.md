@@ -14,6 +14,13 @@ Instead of generic minimum viable examples, this project implements **fully-func
 
 ---
 
+## 📱 Try the App
+You can download and install the latest working version of the app directly on your Android device:
+
+[![Download APK](https://img.shields.io/badge/Download-APK-green?style=for-the-badge&logo=android)](https://github.com/ArpitAswal/Local-Storage-Offline-Architecture/releases/download/v1.0.0/app-arm64-v8a-release.apk)
+
+---
+
 ## 🗺️ Learning Path & Curriculum
 
 The playground is structured into **seven database engines**, ordered from basic key-value caches to advanced multi-isolate relational engines and offline-first repositories.
